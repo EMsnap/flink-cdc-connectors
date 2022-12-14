@@ -153,7 +153,7 @@ public class MySqlSnapshotSplitReadTask
         LOG.info("Snapshot step 2 - Snapshotting data");
         createDataEvents(ctx, snapshotSplit.getTableId());
 
-        final BinlogOffset highWatermark = currentBinlogOffset(jdbcConnection);
+        BinlogOffset highWatermark = determineHighWatermark(lowWatermark);
         LOG.info(
                 "Snapshot step 3 - Determining high watermark {} for split {}",
                 highWatermark,
@@ -164,6 +164,21 @@ public class MySqlSnapshotSplitReadTask
                 .setHighWatermark(highWatermark);
 
         return SnapshotResult.completed(ctx.offset);
+    }
+
+    /**
+     * for chunk that equals to the whole table we do not need to normalize
+     * the snapshot data and the binlog data, just set high watermark to low watermark
+     * @return highWatermark
+     */
+    private BinlogOffset determineHighWatermark(BinlogOffset lowWatermark) {
+        if (snapshotSplit.isWholeTableSplit()) {
+            LOG.info("for split {}, set highWatermark to lowWatermark {} since"
+                + " it reads the whole table ", snapshotSplit, lowWatermark);
+            return lowWatermark;
+        } else {
+            return currentBinlogOffset(jdbcConnection);
+        }
     }
 
     @Override

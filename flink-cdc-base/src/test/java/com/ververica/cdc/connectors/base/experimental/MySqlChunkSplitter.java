@@ -72,12 +72,8 @@ public class MySqlChunkSplitter implements JdbcSourceChunkSplitter {
 
             Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
             Column splitColumn = getSplitColumn(table);
-            final List<ChunkRange> chunks;
-            try {
-                chunks = splitTableIntoChunks(jdbc, tableId, splitColumn);
-            } catch (SQLException e) {
-                throw new FlinkRuntimeException("Failed to split chunks for table " + tableId, e);
-            }
+
+            List<ChunkRange> chunks = getChunks(tableId, jdbc, table);
 
             // convert chunks into splits
             List<SnapshotSplit> splits = new ArrayList<>();
@@ -105,6 +101,25 @@ public class MySqlChunkSplitter implements JdbcSourceChunkSplitter {
         } catch (Exception e) {
             throw new FlinkRuntimeException(
                     String.format("Generate Splits for table %s error", tableId), e);
+        }
+    }
+
+    /**
+     * get chunks of the table using primary key
+     * for those who don't have primary key, return the whole table as a chunk
+     * @return chunks
+     */
+    private List<ChunkRange> getChunks(TableId tableId, JdbcConnection jdbc, Table table) {
+        if (table.primaryKeyColumns().isEmpty()) {
+            // take the whole table as chunk range
+            // when there is no primary key presented
+            return Collections.singletonList(ChunkRange.all());
+        } else {
+            try {
+                return splitTableIntoChunks(jdbc, tableId, getSplitColumn(table));
+            } catch (SQLException e) {
+                throw new FlinkRuntimeException("Failed to split chunks for table " + tableId, e);
+            }
         }
     }
 
@@ -357,13 +372,10 @@ public class MySqlChunkSplitter implements JdbcSourceChunkSplitter {
     public static Column getSplitColumn(Table table) {
         List<Column> primaryKeys = table.primaryKeyColumns();
         if (primaryKeys.isEmpty()) {
-            throw new ValidationException(
-                    String.format(
-                            "Incremental snapshot for tables requires primary key,"
-                                    + " but table %s doesn't have primary key.",
-                            table.id()));
+            // since we do not need a split column when there is no primary key
+            // simply return the first column which won't be used
+            return table.columns().get(0);
         }
-
         // use first field in primary key as the split key
         return primaryKeys.get(0);
     }

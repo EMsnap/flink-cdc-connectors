@@ -112,7 +112,6 @@ public class MySqlTableSourceFactory implements DynamicTableSourceFactory {
 
         boolean enableParallelRead = config.get(SCAN_INCREMENTAL_SNAPSHOT_ENABLED);
         if (enableParallelRead) {
-            validatePrimaryKeyIfEnableParallel(physicalSchema);
             validateIntegerOption(SCAN_INCREMENTAL_SNAPSHOT_CHUNK_SIZE, splitSize, 1);
             validateIntegerOption(CHUNK_META_GROUP_SIZE, splitMetaGroupSize, 1);
             validateIntegerOption(SCAN_SNAPSHOT_FETCH_SIZE, fetchSize, 1);
@@ -265,15 +264,6 @@ public class MySqlTableSourceFactory implements DynamicTableSourceFactory {
         config.getOptional(SCAN_STARTUP_SPECIFIC_OFFSET_SKIP_ROWS)
                 .ifPresent(offsetBuilder::setSkipRows);
         return StartupOptions.specificOffset(offsetBuilder.build());
-    }
-
-    private void validatePrimaryKeyIfEnableParallel(ResolvedSchema physicalSchema) {
-        if (!physicalSchema.getPrimaryKey().isPresent()) {
-            throw new ValidationException(
-                    String.format(
-                            "The primary key is necessary when enable '%s' to 'true'",
-                            SCAN_INCREMENTAL_SNAPSHOT_ENABLED));
-        }
     }
 
     private String validateAndGetServerId(ReadableConfig configuration) {

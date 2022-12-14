@@ -83,6 +83,10 @@ public class MySqlSnapshotSplit extends MySqlSplit {
         return highWatermark != null;
     }
 
+    public boolean isWholeTableSplit() {
+        return splitStart == null && splitEnd == null;
+    }
+
     @Override
     public Map<TableId, TableChange> getTableSchemas() {
         return tableSchemas;
